@@ -1,0 +1,9 @@
+# Ignore the virtual environment
+sailors-env/
+
+# Ignore Python cache files
+__pycache__/
+*.py[cod]
+
+# Ignore environment variables (for later)
+.env
