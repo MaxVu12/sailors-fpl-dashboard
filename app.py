@@ -2,49 +2,58 @@ import streamlit as st
 import pandas as pd
 import requests
 
-# 1. Page Configuration
-st.set_page_config(page_title="FPL Money League", page_icon="⚽")
+# This keeps your app fast by not hitting the API on every single click
+@st.cache_data(ttl=600) 
+def get_data(url):
+    return requests.get(url).json()
 
-# 2. Your Logic (The "Engine")
-def get_fpl_data(league_id):
-    """
-    This replaces your Colab logic. 
-    For now, we'll use a placeholder to show how it displays.
-    """
-    # In reality, you'd use: requests.get(f"https://fantasy.premierleague.com/api/leagues-classic/{league_id}/standings/")
-    mock_data = {
-        "Manager": ["Alice", "Bob", "Charlie", "Dave"],
-        "GW_Points": [65, 58, 72, 45],
-        "Total_Points": [1200, 1150, 1180, 1100],
-        "Weekly_Result": [10.00, -5.00, 20.00, -25.00] # Your calculated $
-    }
-    return pd.DataFrame(mock_data)
-
-# 3. The Dashboard UI
-st.title("🏆 FPL Money League Dashboard")
-st.subheader("Weekly Earnings & Standings")
-
-# Sidebar for inputs (keeps the main page clean)
-league_id = st.sidebar.text_input("Enter FPL League ID", value="123456")
-
-if st.button('Refresh Data'):
-    with st.spinner('Calculating profits...'):
-        # Call your function
-        df = get_fpl_data(league_id)
+class FPLMoneyLeague:
+    def __init__(self, league_id):
+        self.league_id = league_id
+        self.bootstrap_url = 'https://fantasy.premierleague.com/api/bootstrap-static/'
+        self.api_url = f"https://fantasy.premierleague.com/api/leagues-classic/{self.league_id}/standings/"
         
-        # Display Top Performer Metric
-        top_manager = df.iloc[df['GW_Points'].idxmax()]
-        st.metric(label="Weekly High Scorer", value=top_manager['Manager'], delta=f"{top_manager['GW_Points']} pts")
+        # Your specific money mapping
+        self.weekly_prize_mapping = {
+            1: 45, 2: 35, 3: 25, 4: 20, 5: 15, 6: 10, 7: 0, 
+            8: -5, 9: -10, 10: -10, 11: -15, 12: -20, 13: -25, 14: -30, 15: -35
+        }
 
-        # Display the main table
-        st.write("### Current Week Breakdown")
-        st.dataframe(df.style.highlight_max(axis=0, subset=['Weekly_Result'], color='lightgreen'))
+    def get_live_standings(self):
+        data = get_data(self.api_url)
+        if not data['standings']['results']:
+            return pd.DataFrame({"Error": ["League hasn't started or no data found."]})
+        
+        df = pd.json_normalize(data['standings']['results'])
+        
+        # Clean up the dataframe
+        df = df[['rank', 'player_name', 'entry_name', 'event_total', 'total']]
+        df.columns = ['Rank', 'Manager', 'Team Name', 'GW Points', 'Total Points']
+        
+        # Calculate the money logic live!
+        df['Weekly Cash'] = df['Rank'].map(self.weekly_prize_mapping).fillna(0)
+        
+        return df
 
-        # Add a simple chart for visual flair
-        st.bar_chart(data=df, x="Manager", y="Weekly_Result")
+# --- STREAMLIT UI ---
+st.set_page_config(page_title="Sailors FPL", page_icon="⚽")
+st.title("⚓ Sailors FPL Money League")
 
-else:
-    st.info("Click the button above to pull the latest data from the FPL API.")
+# Sidebar input for your league
+league_id = st.sidebar.text_input("Enter FPL League ID", value="123456") # Put your real ID here
 
-st.divider()
-st.caption("Built with Streamlit • Managed by League Admin")
+if st.button('Fetch Live Standings'):
+    fpl = FPLMoneyLeague(league_id)
+    with st.spinner('Calculating profits...'):
+        df = fpl.get_live_standings()
+        
+        # Display a summary metric
+        top_row = df.iloc[0]
+        st.metric(label="Current GW Leader", value=top_row['Manager'], delta=f"{top_row['GW Points']} pts")
+        
+        # Show the table
+        st.write("### Weekly Breakdown")
+        st.dataframe(
+            df.style.format({'Weekly Cash': '${:.2f}'})
+                    .highlight_max(axis=0, subset=['GW Points'], color='lightgreen')
+        )
