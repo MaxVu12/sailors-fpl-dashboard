@@ -38,8 +38,15 @@ class FPLMoneyLeague:
             df = df[['rank', 'player_name', 'entry_name', 'event_total', 'total']]
             df.columns = ['Rank', 'Manager', 'Team Name', 'GW Points', 'Total Points']
             
-            # Calculate the money logic live
-            df['Weekly Cash'] = df['Rank'].map(self.weekly_prize_mapping).fillna(0)
+            # 1. Sort the dataframe by GW Points (highest first)
+            # 2. Use tie-breakers like 'Total Points' if the GW points are equal
+            df = df.sort_values(by=['GW Points', 'Total Points'], ascending=[False, False])
+
+            # 3. Assign a weekly rank (1 to 15) based on that sorting
+            df['Weekly Rank'] = range(1, len(df) + 1)
+
+            # 4. Map the prizes to the new Weekly Rank
+            df['Weekly Cash'] = df['Weekly Rank'].map(self.weekly_prize_mapping).fillna(0)
             
             return df
 
@@ -48,7 +55,7 @@ st.set_page_config(page_title="Sailors FPL", page_icon="⚽")
 st.title("⚓ Sailors FPL Money League")
 
 # Sidebar input for your league
-league_id = st.sidebar.text_input("Enter FPL League ID", value="123456") # Put your real ID here
+league_id = st.sidebar.text_input("Enter FPL League ID", value="126694") # Put your real ID here
 
 if st.button('Fetch Live Standings'):
     fpl = FPLMoneyLeague(league_id)
