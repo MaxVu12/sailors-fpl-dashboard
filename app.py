@@ -20,20 +20,28 @@ class FPLMoneyLeague:
         }
 
     def get_live_standings(self):
-        data = get_data(self.api_url)
-        if not data['standings']['results']:
-            return pd.DataFrame({"Error": ["League hasn't started or no data found."]})
-        
-        df = pd.json_normalize(data['standings']['results'])
-        
-        # Clean up the dataframe
-        df = df[['rank', 'player_name', 'entry_name', 'event_total', 'total']]
-        df.columns = ['Rank', 'Manager', 'Team Name', 'GW Points', 'Total Points']
-        
-        # Calculate the money logic live!
-        df['Weekly Cash'] = df['Rank'].map(self.weekly_prize_mapping).fillna(0)
-        
-        return df
+            data = get_data(self.api_url)
+            
+            # DEBUG: This helps us see the actual API response if it fails
+            # st.write(data) 
+
+            # Check if 'standings' exists in the response
+            if 'standings' not in data:
+                return pd.DataFrame({"Error": ["Could not find standings. Check if your League ID is a Classic League."]})
+            
+            if not data['standings'].get('results'):
+                return pd.DataFrame({"Error": ["League hasn't started or no results found yet."]})
+            
+            df = pd.json_normalize(data['standings']['results'])
+            
+            # Clean up the dataframe
+            df = df[['rank', 'player_name', 'entry_name', 'event_total', 'total']]
+            df.columns = ['Rank', 'Manager', 'Team Name', 'GW Points', 'Total Points']
+            
+            # Calculate the money logic live
+            df['Weekly Cash'] = df['Rank'].map(self.weekly_prize_mapping).fillna(0)
+            
+            return df
 
 # --- STREAMLIT UI ---
 st.set_page_config(page_title="Sailors FPL", page_icon="⚽")
