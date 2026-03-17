@@ -55,13 +55,16 @@ if st.button('Fetch Live Standings'):
     with st.spinner('Calculating profits...'):
         df = fpl.get_live_standings()
         
-        # Display a summary metric
-        top_row = df.iloc[0]
-        st.metric(label="Current GW Leader", value=top_row['Manager'], delta=f"{top_row['GW Points']} pts")
-        
-        # Show the table
-        st.write("### Weekly Breakdown")
-        st.dataframe(
-            df.style.format({'Weekly Cash': '${:.2f}'})
-                    .highlight_max(axis=0, subset=['GW Points'], color='lightgreen')
-        )
+        # --- NEW CHECK HERE ---
+        if "Error" in df.columns:
+            st.error(df["Error"].iloc[0])
+        else:
+            # Only run this if we have real manager data
+            top_row = df.iloc[0]
+            st.metric(label="Current GW Leader", value=top_row['Manager'], delta=f"{top_row['GW Points']} pts")
+            
+            st.write("### Weekly Breakdown")
+            st.dataframe(
+                df.style.format({'Weekly Cash': '${:.2f}'})
+                        .highlight_max(axis=0, subset=['GW Points'], color='lightgreen')
+            )
