@@ -69,17 +69,16 @@ class FPLMoneyLeague:
         deadline_vn = "N/A"
         
         if next_gw:
-            # 1. Parse FPL UTC time
             utc_time = datetime.strptime(next_gw['deadline_time'], '%Y-%m-%dT%H:%M:%SZ')
             utc_time = pytz.utc.localize(utc_time)
-            
-            # 2. Convert to Toronto (America/Toronto)
-            to_tz = pytz.timezone('America/Toronto')
-            deadline_to = utc_time.astimezone(to_tz).strftime('%b %d, %I:%M %p %Z')
-            
-            # 3. Convert to Hanoi (Asia/Ho_Chi_Minh)
-            vn_tz = pytz.timezone('Asia/Ho_Chi_Minh')
-            deadline_vn = utc_time.astimezone(vn_tz).strftime('%b %d, %I:%M %p %Z')
+                
+            # Format for Toronto (Force 'EDT/EST' label)
+            to_time = utc_time.astimezone(pytz.timezone('America/Toronto'))
+            deadline_to = to_time.strftime('%b %d, %I:%M %p') + " EDT"
+                
+            # Format for Hanoi (Force 'ICT' label)
+            vn_time = utc_time.astimezone(pytz.timezone('Asia/Ho_Chi_Minh'))
+            deadline_vn = vn_time.strftime('%b %d, %I:%M %p') + " ICT"
                 
         return current_gw['id'], deadline_to, deadline_vn
 
@@ -96,16 +95,16 @@ try:
     next_gw = current_gw + 1
     
     # Create two main columns
-    col_left, col_right = st.columns([1, 2])
+    col_left, col_right = st.columns([1, 2.5])
     
     with col_left:
         st.metric("Current GW", f"GW {current_gw}")
         
     with col_right:
         st.subheader(f"Next Deadline (GW {next_gw})")
-        # Display the two times stacked vertically
-        st.write(f"🇨🇦 **Toronto:** {deadline_to}")
-        st.write(f"🇻🇳 **Hanoi:** {deadline_vn}")
+        # Use simple bold text instead of emojis for consistent rendering
+        st.markdown(f"**Toronto:** `{deadline_to}`")
+        st.markdown(f"**Hanoi:** `{deadline_vn}`")  
     
     st.divider()
 except Exception as e:
