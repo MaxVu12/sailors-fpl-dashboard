@@ -75,14 +75,19 @@ class FPLMoneyLeague:
                 'GW Points': entry['event_total'],
                 'Hits': int(gw_stats['transfers_cost']) * -1,
                 'Bench': int(gw_stats['points_on_bench']),
-                'Overall Rank': entry['rank'],
+                'OR': entry['rank'],
                 'Total': entry['total']
             })
 
         df = pd.DataFrame(all_manager_data)
 
+        df['GW Net'] = df['GW Points'] + df['Hits']
+
         # 3. SORTING LOGIC: Still using GW Points and Total for now
-        df = df.sort_values(by=['GW Points', 'Total'], ascending=[False, False])
+        df = df.sort_values(
+            by=['GW Points', 'GW Net', 'Bench', 'Total'], 
+            ascending=[False, False, False, False]
+        )
         
         # 4. Create the Weekly Rank and Map Cash
         df['GW Rank'] = range(1, len(df) + 1)
@@ -91,7 +96,7 @@ class FPLMoneyLeague:
         # 5. REORDER: Hits and Bench behind GW Cash
         column_order = [
             'GW Rank', 'Manager', 'Team Name', 'GW Points', 
-            'GW Cash', 'Hits', 'Bench', 'Overall Rank', 'Total'
+            'GW Cash', 'Hits', 'Bench', 'OR', 'Total'
         ]
 
         return df[column_order]
