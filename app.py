@@ -206,7 +206,7 @@ if st.button('Fetch Live Standings'):
             # Display the table
             st.dataframe(
                 styled_df, 
-                width='content',
+                width='stretch',
                 height='content', 
                 hide_index=True
             )
