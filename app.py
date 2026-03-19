@@ -93,20 +93,16 @@ try:
     current_gw, deadline_to, deadline_vn = fpl.get_gameweek_info()
     next_gw = current_gw + 1
     
-    # Using a 1:2 column ratio
+    # Using columns for the layout
     col_left, col_right = st.columns([1, 2])
     
     with col_left:
-        # This HTML block centers everything and matches the 'Subheader' vibe
+        # We use <h3> to match the "Next Deadline" header font family exactly
         st.markdown(
             f"""
-            <div style="text-align: center; padding-top: 10px;">
-                <p style="margin: 0; font-size: 1.2rem; font-weight: 600; color: #fafafa; opacity: 0.8;">
-                    Current GW
-                </p>
-                <h1 style="margin: 0; font-size: 4rem; font-weight: 800; color: white; line-height: 1;">
-                    {current_gw}
-                </h1>
+            <div style="text-align: center;">
+                <h3 style="margin-bottom: 0; font-weight: 600; opacity: 0.9;">Current GW</h3>
+                <h1 style="margin-top: -10px; font-size: 3.5rem; font-weight: 800;">{current_gw}</h1>
             </div>
             """, 
             unsafe_allow_html=True
@@ -114,14 +110,14 @@ try:
         
     with col_right:
         st.markdown(f"### Next Deadline (GW {next_gw})")
-        # Bold text labels are cleaner than broken Windows flags
+        # Flags will look great on the iOS screenshot you just sent!
         st.markdown(f"🇨🇦 **Toronto:** `{deadline_to}`")
         st.markdown(f"🇻🇳 **Hanoi:** `{deadline_vn}`")
     
     st.divider()
 except Exception as e:
     st.warning("Could not fetch current Gameweek status.")
-    
+
 # 2. The Button and Table Logic
 if st.button('Fetch Live Standings'):
     with st.spinner('Calculating profits...'):
