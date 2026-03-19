@@ -20,35 +20,39 @@ class FPLMoneyLeague:
         }
 
     def get_live_standings(self):
-            data = get_data(self.api_url)
+        data = get_data(self.api_url)
             
-            # DEBUG: This helps us see the actual API response if it fails
-            # st.write(data) 
+        # DEBUG: This helps us see the actual API response if it fails
+        # st.write(data) 
 
-            # Check if 'standings' exists in the response
-            if 'standings' not in data:
-                return pd.DataFrame({"Error": ["Could not find standings. Check if your League ID is a Classic League."]})
+        # Check if 'standings' exists in the response
+        if 'standings' not in data:
+            return pd.DataFrame({"Error": ["Could not find standings. Check if your League ID is a Classic League."]})
             
-            if not data['standings'].get('results'):
-                return pd.DataFrame({"Error": ["League hasn't started or no results found yet."]})
+        if not data['standings'].get('results'):
+            return pd.DataFrame({"Error": ["League hasn't started or no results found yet."]})
             
-            df = pd.json_normalize(data['standings']['results'])
+        # Extract and rename initial columns
+        df = pd.json_normalize(data['standings']['results'])
+        df = df[['player_name', 'entry_name', 'event_total', 'rank', 'total']]
+        df.columns = ['Manager', 'Team Name', 'GW Points', 'Overall Rank', 'Total Points']
             
-            # Clean up the dataframe
-            df = df[['rank', 'player_name', 'entry_name', 'event_total', 'total']]
-            df.columns = ['Rank', 'Manager', 'Team Name', 'GW Points', 'Total Points']
+        # LOGIC: Sort by GW performance for the Weekly Prizes
+        df = df.sort_values(by=['GW Points', 'Total Points'], ascending=[False, False])
             
-            # 1. Sort the dataframe by GW Points (highest first)
-            # 2. Use tie-breakers like 'Total Points' if the GW points are equal
-            df = df.sort_values(by=['GW Points', 'Total Points'], ascending=[False, False])
+        # Create the Weekly Rank based on this sort
+        df['Weekly Rank'] = range(1, len(df) + 1)
+            
+        # Calculate Cash
+        df['Weekly Cash'] = df['Weekly Rank'].map(self.weekly_prize_mapping).fillna(0)
+            
+        # Reorder columns as requested
+        column_order = [
+            'Weekly Rank', 'Manager', 'Team Name', 
+            'GW Points', 'Weekly Cash', 'Overall Rank', 'Total Points'
+        ]
 
-            # 3. Assign a weekly rank (1 to 15) based on that sorting
-            df['Weekly Rank'] = range(1, len(df) + 1)
-
-            # 4. Map the prizes to the new Weekly Rank
-            df['Weekly Cash'] = df['Weekly Rank'].map(self.weekly_prize_mapping).fillna(0)
-            
-            return df
+        return df[column_order]
 
 # --- STREAMLIT UI ---
 st.set_page_config(page_title="Sailors FPL", page_icon="⚽")
@@ -62,16 +66,32 @@ if st.button('Fetch Live Standings'):
     with st.spinner('Calculating profits...'):
         df = fpl.get_live_standings()
         
-        # --- NEW CHECK HERE ---
         if "Error" in df.columns:
             st.error(df["Error"].iloc[0])
         else:
-            # Only run this if we have real manager data
+            # 1. Metric for the weekly winner
             top_row = df.iloc[0]
-            st.metric(label="Current GW Leader", value=top_row['Manager'], delta=f"{top_row['GW Points']} pts")
+            st.metric(
+                label="Current GW Leader", 
+                value=top_row['Manager'], 
+                delta=f"{top_row['GW Points']} pts"
+            )
             
             st.write("### Weekly Breakdown")
-            st.dataframe(
-                df.style.format({'Weekly Cash': '${:.2f}'})
-                        .highlight_max(axis=0, subset=['GW Points'], color='lightgreen')
-            )
+
+            # 2. Custom function to fix the -$10 formatting
+            def format_currency(val):
+                if val < 0:
+                    return f"-${abs(val):.0f}"
+                return f"${val:.0f}"
+
+            # 3. Apply Styling: Gradient, Formatting, and Hide Index
+            styled_df = df.style.format({'Weekly Cash': format_currency}) \
+                .background_gradient(subset=['Weekly Cash'], cmap='RdYlGn') \
+                .hide(axis="index")
+
+            # 4. Display the table
+            st.dataframe(styled_df, use_container_width=True)
+            
+            # Optional: Add a timestamp for that Toronto local feel
+            st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %I:%M %p')} ET")
