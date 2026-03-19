@@ -151,7 +151,7 @@ if st.button('Fetch Live Standings'):
                 styled_df, 
                 width='stretch',
                 height='content', 
-                hide_index=True
+                hide_index=False
             )
             
             # Timestamp
