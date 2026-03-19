@@ -94,7 +94,7 @@ if st.button('Fetch Live Standings'):
             st.dataframe(
                 styled_df, 
                 width='stretch',
-                height=None, 
+                height=content, 
                 hide_index=True)
             
             # Optional: Add a timestamp for that Toronto local feel
