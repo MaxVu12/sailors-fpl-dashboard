@@ -18,42 +18,51 @@ class FPLMoneyLeague:
         
         # Your specific money mapping
         self.weekly_prize_mapping = {
-            1: 45, 2: 35, 3: 25, 4: 20, 5: 15, 6: 10, 7: 0, 
-            8: -5, 9: -10, 10: -10, 11: -15, 12: -20, 13: -25, 14: -30, 15: -35
+            1: 45, 
+            2: 35, 
+            3: 25, 
+            4: 20, 
+            5: 15, 
+            6: 10, 
+            7: 0, 
+            8: -5, 
+            9: -10, 
+            10: -10, 
+            11: -15, 
+            12: -20, 
+            13: -25, 
+            14: -30, 
+            15: -35
         }
 
     def get_live_standings(self):
         data = get_data(self.api_url)
-            
-        # DEBUG: This helps us see the actual API response if it fails
-        # st.write(data) 
-
-        # Check if 'standings' exists in the response
-        if 'standings' not in data:
-            return pd.DataFrame({"Error": ["Could not find standings. Check if your League ID is a Classic League."]})
-            
-        if not data['standings'].get('results'):
+        
+        if 'standings' not in data or not data['standings'].get('results'):
             return pd.DataFrame({"Error": ["League hasn't started or no results found yet."]})
-            
-        # Extract and rename initial columns
+        
+        # Extract columns from FPL API
         df = pd.json_normalize(data['standings']['results'])
-        df = df[['player_name', 'entry_name', 'event_total', 'rank', 'total']]
-        df.columns = ['Manager', 'Team Name', 'GW Points', 'Overall Rank', 'Total Points']
-            
-        # LOGIC: Sort by GW performance for the Weekly Prizes
-        df = df.sort_values(by=['GW Points', 'Total Points'], ascending=[False, False])
-            
-        # Create the Weekly Rank based on this sort
-        df['Weekly Rank'] = range(1, len(df) + 1)
-            
-        # Calculate Cash
-        df['Weekly Cash'] = df['Weekly Rank'].map(self.weekly_prize_mapping).fillna(0)
-            
-        # Reorder columns as requested
-        column_order = [
-            'Weekly Rank', 'Manager', 'Team Name', 
-            'GW Points', 'Weekly Cash', 'Overall Rank', 'Total Points'
-        ]
+        df = df[['player_name', 'entry_name', 'event_total', 'total']]
+        df.columns = ['Manager', 'Team Name', 'GW Points', 'Total']
+        
+        # 1. SORT: Primary sort for Weekly Prizes
+        df = df.sort_values(by=['GW Points', 'Total'], ascending=[False, False])
+        
+        # 2. RANK: Reset index so it starts at 0, then add 1 to make it a Rank column
+        df = df.reset_index(drop=True)
+        df.index = df.index + 1
+        df.index.name = 'Rank'
+        
+        # 3. CASH: Calculate prizes based on this specific rank
+        # (Using .index allows the mapping to work directly on the row position)
+        df['Weekly Cash'] = df.index.map(self.weekly_prize_mapping).fillna(0)
+        
+        # 4. RESET INDEX AGAIN: To turn 'Rank' from an index into a visible column
+        df = df.reset_index()
+        
+        # Final simplified column order
+        column_order = ['Rank', 'Manager', 'Team Name', 'GW Points', 'Weekly Cash', 'Total']
 
         return df[column_order]
 
@@ -110,7 +119,6 @@ try:
         
     with col_right:
         st.markdown(f"### Next Deadline (GW {next_gw})")
-        # Flags will look great on the iOS screenshot you just sent!
         st.markdown(f"🇨🇦 **Toronto:** `{deadline_to}`")
         st.markdown(f"🇻🇳 **Hanoi:** `{deadline_vn}`")
     
