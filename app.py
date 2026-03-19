@@ -61,57 +61,40 @@ class FPLMoneyLeague:
         data = requests.get(url).json()
         
         events = data['events']
+        current_gw = next((e for e in events if e['is_current']), events[0])
         next_gw = next((e for e in events if e['is_next']), None)
         
-        # Return the raw string '2026-03-21T11:00:00Z'
-        return next_gw['id'], next_gw['deadline_time'] if next_gw else None
+        deadline_local = "N/A"
+        
+        if next_gw:
+            # 1. Parse FPL UTC time
+            utc_time = datetime.strptime(next_gw['deadline_time'], '%Y-%m-%dT%H:%M:%SZ')
+            # 2. Add UTC timezone info
+            utc_time = utc_time.replace(tzinfo=pytz.utc)
+            # 3. Format it with the timezone name (e.g., UTC)
+            deadline_local = utc_time.strftime('%b %d, %I:%M %p %Z')
+                
+        return current_gw['id'], deadline_local  
 
 # --- STREAMLIT UI ---
 st.set_page_config(page_title="Sailors FPL", page_icon="⚽")
 st.title("⚓ Sailors FPL Money League")
 
-# 1. Initialize class and fetch raw GW info
+# 1. Initialize class and fetch GW info immediately
 fpl = FPLMoneyLeague("126694")
 
 try:
-    # Ensure your get_gameweek_info returns: current_gw_id, raw_utc_string
-    current_gw, raw_deadline = fpl.get_gameweek_info()
+    current_gw, deadline_str = fpl.get_gameweek_info()
     
     col1, col2 = st.columns(2)
     with col1:
         st.metric("Current Gameweek", f"GW {current_gw}")
     with col2:
-        # We use st.html to run JavaScript that detects the user's timezone
-        st.write("**Next Deadline (Your Local Time)**")
-        st.html(f"""
-            <div style="background-color: #f0f2f6; padding: 10px; border-radius: 10px; border-left: 5px solid #ff4b4b;">
-                <p id="deadline" style="font-family: sans-serif; font-size: 1.1rem; font-weight: bold; margin: 0; color: #31333F;">
-                    Detecting time...
-                </p>
-                <p id="tz-name" style="font-family: sans-serif; font-size: 0.8rem; margin: 0; color: #555;">
-                    --
-                </p>
-            </div>
-            <script>
-                const utcDate = "{raw_deadline}";
-                if (utcDate && utcDate !== "None") {{
-                    const localDate = new Date(utcDate);
-                    const options = {{ 
-                        month: 'short', 
-                        day: 'numeric', 
-                        hour: '2-digit', 
-                        minute: '2-digit',
-                        hour12: true 
-                    }};
-                    const tzName = Intl.DateTimeFormat().resolvedOptions().timeZone;
-                    document.getElementById("deadline").innerHTML = localDate.toLocaleString(undefined, options);
-                    document.getElementById("tz-name").innerHTML = "Timezone: " + tzName;
-                }} else {{
-                    document.getElementById("deadline").innerHTML = "No upcoming deadline";
-                }}
-            </script>
-        """)
+        # This will show "Mar 21, 11:00 AM UTC" 
+        # which is clear for everyone to convert mentally
+        st.metric("Next Deadline", deadline_str)
     
+    st.info("💡 Tip: FPL deadlines are shown in UTC. Toronto is UTC-4, Hanoi is UTC+7.")
     st.divider()
 except Exception as e:
     st.warning("Could not fetch current Gameweek status.")
@@ -134,7 +117,7 @@ if st.button('Fetch Live Standings'):
             
             st.write("### Weekly Breakdown")
 
-            # Custom function for currency
+            # Custom function to fix the -$10 formatting
             def format_currency(val):
                 if val < 0:
                     return f"-${abs(val):.0f}"
@@ -152,5 +135,5 @@ if st.button('Fetch Live Standings'):
                 hide_index=True
             )
             
-            # Timestamp (Local to Toronto/Server)
+            # Timestamp
             st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %I:%M %p')} ET")
