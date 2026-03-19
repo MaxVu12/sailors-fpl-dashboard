@@ -55,22 +55,52 @@ class FPLMoneyLeague:
 
         return df[column_order]
 
+    def get_gameweek_info(self):
+            url = "https://fantasy.premierleague.com/api/bootstrap-static/"
+            data = requests.get(url).json()
+            
+            events = data['events']
+            current_gw = next((e for e in events if e['is_current']), events[0])
+            next_gw = next((e for e in events if e['is_next']), None)
+            
+            deadline_str = ""
+            if next_gw:
+                # Convert FPL's UTC time to a readable format
+                dt = datetime.strptime(next_gw['deadline_time'], '%Y-%m-%dT%H:%M:%SZ')
+                deadline_str = dt.strftime('%b %d, %I:%M %p')
+                
+            return current_gw['id'], deadline_str    
+
 # --- STREAMLIT UI ---
 st.set_page_config(page_title="Sailors FPL", page_icon="⚽")
 st.title("⚓ Sailors FPL Money League")
 
-# Sidebar input for your league
-# league_id = st.sidebar.text_input("Enter FPL League ID", value="126694") # Put your real ID here
+# 1. Initialize class and fetch GW info immediately
+fpl = FPLMoneyLeague("126694")
 
+try:
+    current_gw, next_deadline = fpl.get_gameweek_info()
+    
+    # Display top-level metrics
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Current Gameweek", f"GW {current_gw}")
+    with col2:
+        st.metric("Next Deadline", next_deadline)
+    
+    st.divider()
+except Exception as e:
+    st.warning("Could not fetch current Gameweek status. API might be down.")
+
+# 2. The Button and Table Logic
 if st.button('Fetch Live Standings'):
-    fpl = FPLMoneyLeague("126694")
     with st.spinner('Calculating profits...'):
         df = fpl.get_live_standings()
         
         if "Error" in df.columns:
             st.error(df["Error"].iloc[0])
         else:
-            # 1. Metric for the weekly winner
+            # Metric for the weekly winner
             top_row = df.iloc[0]
             st.metric(
                 label="Current GW Leader", 
@@ -80,23 +110,23 @@ if st.button('Fetch Live Standings'):
             
             st.write("### Weekly Breakdown")
 
-            # 2. Custom function to fix the -$10 formatting
+            # Custom function to fix the -$10 formatting
             def format_currency(val):
                 if val < 0:
                     return f"-${abs(val):.0f}"
                 return f"${val:.0f}"
 
-            # 3. Apply Styling: Gradient, Formatting, and Hide Index
+            # Apply Styling
             styled_df = df.style.format({'Weekly Cash': format_currency}) \
                 .background_gradient(subset=['Weekly Cash'], cmap='RdYlGn')
 
-            # 4. Display the table
+            # Display the table
             st.dataframe(
                 styled_df, 
                 width='stretch',
                 height='content', 
                 hide_index=True
-                )
+            )
             
-            # Optional: Add a timestamp for that Toronto local feel
+            # Timestamp
             st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %I:%M %p')} ET")
