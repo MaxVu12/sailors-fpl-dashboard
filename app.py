@@ -91,7 +91,11 @@ if st.button('Fetch Live Standings'):
                 .background_gradient(subset=['Weekly Cash'], cmap='RdYlGn')
 
             # 4. Display the table
-            st.dataframe(styled_df, width='stretch', hide_index=True)
+            st.dataframe(
+                styled_df, 
+                width='stretch',
+                height=None, 
+                hide_index=True)
             
             # Optional: Add a timestamp for that Toronto local feel
             st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %I:%M %p')} ET")
