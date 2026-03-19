@@ -91,17 +91,21 @@ st.title("⚓ Sailors FPL Money League")
 fpl = FPLMoneyLeague("126694")
 
 try:
+    # current_gw is the ID, e.g., 30
     current_gw, deadline_to, deadline_vn = fpl.get_gameweek_info()
+    next_gw = current_gw + 1
     
-    # Using columns to organize the header
-    col_gw, col_to, col_vn = st.columns([1, 1.5, 1.5])
+    # Create two main columns
+    col_left, col_right = st.columns([1, 2])
     
-    with col_gw:
-        st.metric("Gameweek", f"GW {current_gw}")
-    with col_to:
-        st.metric("Toronto Deadline", deadline_to)
-    with col_vn:
-        st.metric("Hanoi Deadline", deadline_vn)
+    with col_left:
+        st.metric("Current", f"GW {current_gw}")
+        
+    with col_right:
+        st.subheader(f"Next Deadline (GW {next_gw})")
+        # Display the two times stacked vertically
+        st.write(f"🇨🇦 **Toronto:** {deadline_to}")
+        st.write(f"🇻🇳 **Hanoi:** {deadline_vn}")
     
     st.divider()
 except Exception as e:
