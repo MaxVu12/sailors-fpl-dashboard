@@ -50,7 +50,7 @@ class FPLMoneyLeague:
     def get_live_standings(self):
         # 1. Fetch current Gameweek dynamically
         gw_info = self.get_gameweek_info()
-        current_gw = gw_info['id']
+        current_gw = gw_info[0]
 
         data = get_data(self.api_url)
 
