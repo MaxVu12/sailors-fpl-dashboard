@@ -60,10 +60,10 @@ st.set_page_config(page_title="Sailors FPL", page_icon="⚽")
 st.title("⚓ Sailors FPL Money League")
 
 # Sidebar input for your league
-league_id = st.sidebar.text_input("Enter FPL League ID", value="126694") # Put your real ID here
+# league_id = st.sidebar.text_input("Enter FPL League ID", value="126694") # Put your real ID here
 
 if st.button('Fetch Live Standings'):
-    fpl = FPLMoneyLeague(league_id)
+    fpl = FPLMoneyLeague("126694")
     with st.spinner('Calculating profits...'):
         df = fpl.get_live_standings()
         
