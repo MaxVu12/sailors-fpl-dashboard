@@ -73,7 +73,7 @@ class FPLMoneyLeague:
                 'Manager': entry['player_name'],
                 'Team Name': entry['entry_name'],
                 'GW Points': entry['event_total'],
-                'Hits': int(gw_stats['transfers_cost']),
+                'Hits': int(gw_stats['transfers_cost']) * -1,
                 'Bench': int(gw_stats['points_on_bench']),
                 'Overall Rank': entry['rank'],
                 'Total': entry['total']
@@ -206,7 +206,7 @@ if st.button('Fetch Live Standings'):
             # Display the table
             st.dataframe(
                 styled_df, 
-                width='stretch',
+                use_container_width=True',
                 height='content', 
                 hide_index=True
             )
