@@ -99,7 +99,7 @@ try:
     col_left, col_right = st.columns([1, 2])
     
     with col_left:
-        st.metric("Current", f"GW {current_gw}")
+        st.metric("Current GW", f"GW {current_gw}")
         
     with col_right:
         st.subheader(f"Next Deadline (GW {next_gw})")
