@@ -1,8 +1,9 @@
 import streamlit as st
 import pandas as pd
 import requests
-from datetime import datetime 
 import pytz
+from datetime import datetime 
+
 
 # This keeps your app fast by not hitting the API on every single click
 @st.cache_data(ttl=600) 
@@ -64,17 +65,23 @@ class FPLMoneyLeague:
         current_gw = next((e for e in events if e['is_current']), events[0])
         next_gw = next((e for e in events if e['is_next']), None)
         
-        deadline_local = "N/A"
+        deadline_to = "N/A"
+        deadline_vn = "N/A"
         
         if next_gw:
             # 1. Parse FPL UTC time
             utc_time = datetime.strptime(next_gw['deadline_time'], '%Y-%m-%dT%H:%M:%SZ')
-            # 2. Add UTC timezone info
-            utc_time = utc_time.replace(tzinfo=pytz.utc)
-            # 3. Format it with the timezone name (e.g., UTC)
-            deadline_local = utc_time.strftime('%b %d, %I:%M %p %Z')
+            utc_time = pytz.utc.localize(utc_time)
+            
+            # 2. Convert to Toronto (America/Toronto)
+            to_tz = pytz.timezone('America/Toronto')
+            deadline_to = utc_time.astimezone(to_tz).strftime('%b %d, %I:%M %p %Z')
+            
+            # 3. Convert to Hanoi (Asia/Ho_Chi_Minh)
+            vn_tz = pytz.timezone('Asia/Ho_Chi_Minh')
+            deadline_vn = utc_time.astimezone(vn_tz).strftime('%b %d, %I:%M %p %Z')
                 
-        return current_gw['id'], deadline_local  
+        return current_gw['id'], deadline_to, deadline_vn
 
 # --- STREAMLIT UI ---
 st.set_page_config(page_title="Sailors FPL", page_icon="⚽")
@@ -84,17 +91,18 @@ st.title("⚓ Sailors FPL Money League")
 fpl = FPLMoneyLeague("126694")
 
 try:
-    current_gw, deadline_str = fpl.get_gameweek_info()
+    current_gw, deadline_to, deadline_vn = fpl.get_gameweek_info()
     
-    col1, col2 = st.columns(2)
-    with col1:
-        st.metric("Current Gameweek", f"GW {current_gw}")
-    with col2:
-        # This will show "Mar 21, 11:00 AM UTC" 
-        # which is clear for everyone to convert mentally
-        st.metric("Next Deadline", deadline_str)
+    # Using columns to organize the header
+    col_gw, col_to, col_vn = st.columns([1, 1.5, 1.5])
     
-    st.info("💡 Tip: FPL deadlines are shown in UTC. Toronto is UTC-4, Hanoi is UTC+7.")
+    with col_gw:
+        st.metric("Gameweek", f"GW {current_gw}")
+    with col_to:
+        st.metric("Toronto Deadline", deadline_to)
+    with col_vn:
+        st.metric("Hanoi Deadline", deadline_vn)
+    
     st.divider()
 except Exception as e:
     st.warning("Could not fetch current Gameweek status.")
