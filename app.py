@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import requests
 from datetime import datetime 
+import pytz
 
 # This keeps your app fast by not hitting the API on every single click
 @st.cache_data(ttl=600) 
@@ -56,20 +57,24 @@ class FPLMoneyLeague:
         return df[column_order]
 
     def get_gameweek_info(self):
-            url = "https://fantasy.premierleague.com/api/bootstrap-static/"
-            data = requests.get(url).json()
-            
-            events = data['events']
-            current_gw = next((e for e in events if e['is_current']), events[0])
-            next_gw = next((e for e in events if e['is_next']), None)
-            
-            deadline_str = ""
-            if next_gw:
-                # Convert FPL's UTC time to a readable format
-                dt = datetime.strptime(next_gw['deadline_time'], '%Y-%m-%dT%H:%M:%SZ')
-                deadline_str = dt.strftime('%b %d, %I:%M %p')
+        url = "https://fantasy.premierleague.com/api/bootstrap-static/"
+        data = requests.get(url).json()
+        
+        events = data['events']
+        current_gw = next((e for e in events if e['is_current']), events[0])
+        next_gw = next((e for e in events if e['is_next']), None)
+        
+        deadline_local = "N/A"
+        
+        if next_gw:
+            # 1. Parse FPL UTC time
+            utc_time = datetime.strptime(next_gw['deadline_time'], '%Y-%m-%dT%H:%M:%SZ')
+            # 2. Add UTC timezone info
+            utc_time = utc_time.replace(tzinfo=pytz.utc)
+            # 3. Format it with the timezone name (e.g., UTC)
+            deadline_local = utc_time.strftime('%b %d, %I:%M %p %Z')
                 
-            return current_gw['id'], deadline_str    
+        return current_gw['id'], deadline_local  
 
 # --- STREAMLIT UI ---
 st.set_page_config(page_title="Sailors FPL", page_icon="⚽")
@@ -79,18 +84,20 @@ st.title("⚓ Sailors FPL Money League")
 fpl = FPLMoneyLeague("126694")
 
 try:
-    current_gw, next_deadline = fpl.get_gameweek_info()
+    current_gw, deadline_str = fpl.get_gameweek_info()
     
-    # Display top-level metrics
     col1, col2 = st.columns(2)
     with col1:
         st.metric("Current Gameweek", f"GW {current_gw}")
     with col2:
-        st.metric("Next Deadline", next_deadline)
+        # This will show "Mar 21, 11:00 AM UTC" 
+        # which is clear for everyone to convert mentally
+        st.metric("Next Deadline", deadline_str)
     
+    st.info("💡 Tip: FPL deadlines are shown in UTC. Toronto is UTC-4, Hanoi is UTC+7.")
     st.divider()
 except Exception as e:
-    st.warning("Could not fetch current Gameweek status. API might be down.")
+    st.warning("Could not fetch current Gameweek status.")
 
 # 2. The Button and Table Logic
 if st.button('Fetch Live Standings'):
