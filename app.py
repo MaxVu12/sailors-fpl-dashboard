@@ -90,21 +90,29 @@ st.title("⚓ Sailors FPL Money League")
 fpl = FPLMoneyLeague("126694")
 
 try:
-    # current_gw is the ID, e.g., 30
     current_gw, deadline_to, deadline_vn = fpl.get_gameweek_info()
     next_gw = current_gw + 1
     
-    # Create two main columns
-    col_left, col_right = st.columns([1, 2.5])
+    # We use a 1:2 ratio. Adjusting the vertical alignment with a spacer.
+    col_left, col_right = st.columns([1, 2])
     
     with col_left:
-        st.metric("Current GW", f"GW {current_gw}")
+        # We use HTML to center the text and match the subheader font size
+        st.markdown(
+            f"""
+            <div style="text-align: center; margin-top: 10px;">
+                <p style="margin-bottom: 0px; font-size: 1.1rem; color: #888;">Current GW</p>
+                <h2 style="margin-top: 0px; font-size: 2.5rem;">{current_gw}</h2>
+            </div>
+            """, 
+            unsafe_allow_html=True
+        )
         
     with col_right:
-        st.subheader(f"Next Deadline (GW {next_gw})")
-        # Use simple bold text instead of emojis for consistent rendering
-        st.markdown(f"**Toronto:** `{deadline_to}`")
-        st.markdown(f"**Hanoi:** `{deadline_vn}`")  
+        st.markdown(f"### Next Deadline (GW {next_gw})")
+        # Added emojis back in - if the anchor works, these should too!
+        st.markdown(f"🇨🇦 **Toronto:** `{deadline_to}`")
+        st.markdown(f"🇻🇳 **Hanoi:** `{deadline_vn}`")
     
     st.divider()
 except Exception as e:
