@@ -3,8 +3,6 @@ import pandas as pd
 import requests
 from datetime import datetime 
 
-st.set_page_config(layout="wide")
-
 # This keeps your app fast by not hitting the API on every single click
 @st.cache_data(ttl=600) 
 def get_data(url):
@@ -97,14 +95,7 @@ if st.button('Fetch Live Standings'):
                 styled_df, 
                 width='stretch',
                 height='content', 
-                hide_index=True,
-                # This helps mobile browsers decide which columns to prioritize
-                column_config={
-                    "Weekly Rank": st.column_config.NumberColumn(width="small"),
-                    "Manager": st.column_config.TextColumn(width="medium"),
-                    "GW Points": st.column_config.NumberColumn(width="small"),
-                    "Weekly Cash": st.column_config.TextColumn(width="small"),
-                }
+                hide_index=True
                 )
             
             # Optional: Add a timestamp for that Toronto local feel
