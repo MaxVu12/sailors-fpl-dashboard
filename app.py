@@ -134,7 +134,7 @@ if st.button('Fetch Live Standings'):
                 delta=f"{top_row['GW Points']} pts"
             )
             
-            st.write("### Weekly Breakdown")
+            st.write("### Gameweek Breakdown")
 
             # Custom function to fix the -$10 formatting
             def format_currency(val):
@@ -143,8 +143,8 @@ if st.button('Fetch Live Standings'):
                 return f"${val:.0f}"
 
             # Apply Styling
-            styled_df = df.style.format({'Weekly Cash': format_currency}) \
-                .background_gradient(subset=['Weekly Cash'], cmap='RdYlGn')
+            styled_df = df.style.format({'GW Cash': format_currency}) \
+                .background_gradient(subset=['GW Cash'], cmap='RdYlGn')
 
             # Display the table
             st.dataframe(
