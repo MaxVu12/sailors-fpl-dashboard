@@ -38,10 +38,10 @@ class FPLMoneyLeague:
         # Extract and rename initial columns
         df = pd.json_normalize(data['standings']['results'])
         df = df[['player_name', 'entry_name', 'event_total', 'rank', 'total']]
-        df.columns = ['Manager', 'Team Name', 'GW Points', 'Overall Rank', 'Total Points']
+        df.columns = ['Manager', 'Team Name', 'GW Points', 'Overall Rank', 'Total']
             
         # LOGIC: Sort by GW performance for the Weekly Prizes
-        df = df.sort_values(by=['GW Points', 'Total Points'], ascending=[False, False])
+        df = df.sort_values(by=['GW Points', 'Total'], ascending=[False, False])
             
         # Create the Weekly Rank based on this sort
         df['Weekly Rank'] = range(1, len(df) + 1)
@@ -52,7 +52,7 @@ class FPLMoneyLeague:
         # Reorder columns as requested
         column_order = [
             'Weekly Rank', 'Manager', 'Team Name', 
-            'GW Points', 'Weekly Cash', 'Overall Rank', 'Total Points'
+            'GW Points', 'Weekly Cash', 'Overall Rank', 'Total'
         ]
 
         return df[column_order]
@@ -151,7 +151,7 @@ if st.button('Fetch Live Standings'):
                 styled_df, 
                 width='stretch',
                 height='content', 
-                hide_index=False
+                hide_index=True
             )
             
             # Timestamp
