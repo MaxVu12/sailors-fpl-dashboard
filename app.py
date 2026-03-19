@@ -136,4 +136,4 @@ if st.button('Fetch Live Standings'):
             )
             
             # Timestamp
-            st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %I:%M %p')} ET")
+            st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %I:%M %p')} UTC")
