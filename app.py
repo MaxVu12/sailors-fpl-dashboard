@@ -92,7 +92,7 @@ if st.button('Fetch Live Standings'):
                 .hide(axis="index")
 
             # 4. Display the table
-            st.dataframe(styled_df, use_container_width=True)
+            st.dataframe(styled_df, width='stretch')
             
             # Optional: Add a timestamp for that Toronto local feel
             st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %I:%M %p')} ET")
