@@ -44,15 +44,15 @@ class FPLMoneyLeague:
         df = df.sort_values(by=['GW Points', 'Total'], ascending=[False, False])
             
         # Create the Weekly Rank based on this sort
-        df['Weekly Rank'] = range(1, len(df) + 1)
+        df['GW Rank'] = range(1, len(df) + 1)
             
         # Calculate Cash
-        df['Weekly Cash'] = df['Weekly Rank'].map(self.weekly_prize_mapping).fillna(0)
+        df['GW Cash'] = df['GW Rank'].map(self.weekly_prize_mapping).fillna(0)
             
         # Reorder columns as requested
         column_order = [
-            'Weekly Rank', 'Manager', 'Team Name', 
-            'GW Points', 'Weekly Cash', 'Overall Rank', 'Total'
+            'GW Rank', 'Manager', 'Team Name', 
+            'GW Points', 'GW Cash', 'Overall Rank', 'Total'
         ]
 
         return df[column_order]
