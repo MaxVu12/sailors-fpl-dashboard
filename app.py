@@ -97,7 +97,7 @@ if st.button('Fetch Live Standings'):
                 styled_df, 
                 width='stretch',
                 height='content', 
-                hide_index=True
+                hide_index=True,
                 # This helps mobile browsers decide which columns to prioritize
                 column_config={
                     "Weekly Rank": st.column_config.NumberColumn(width="small"),
