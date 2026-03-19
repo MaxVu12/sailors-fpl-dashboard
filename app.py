@@ -88,11 +88,10 @@ if st.button('Fetch Live Standings'):
 
             # 3. Apply Styling: Gradient, Formatting, and Hide Index
             styled_df = df.style.format({'Weekly Cash': format_currency}) \
-                .background_gradient(subset=['Weekly Cash'], cmap='RdYlGn') \
-                .hide(axis="index")
+                .background_gradient(subset=['Weekly Cash'], cmap='RdYlGn')
 
             # 4. Display the table
-            st.dataframe(styled_df, width='stretch')
+            st.dataframe(styled_df, width='stretch', hide_index=True)
             
             # Optional: Add a timestamp for that Toronto local feel
             st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %I:%M %p')} ET")
