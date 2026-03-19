@@ -22,65 +22,122 @@ class FPLMoneyLeague:
             8: -5, 9: -10, 10: -10, 11: -15, 12: -20, 13: -25, 14: -30, 15: -35
         }
 
-    def get_live_standings(self):
-        data = get_data(self.api_url)
+    def get_gameweek_info(self):
+        url = "https://fantasy.premierleague.com/api/bootstrap-static/"
+        data = requests.get(url).json()
             
-        # DEBUG: This helps us see the actual API response if it fails
-        # st.write(data) 
+        events = data['events']
+        current_gw = next((e for e in events if e['is_current']), events[0])
+        next_gw = next((e for e in events if e['is_next']), None)
+            
+        deadline_to = "N/A"
+        deadline_vn = "N/A"
+            
+        if next_gw:
+            utc_time = datetime.strptime(next_gw['deadline_time'], '%Y-%m-%dT%H:%M:%SZ')
+            utc_time = pytz.utc.localize(utc_time)
+                    
+            # Format for Toronto (Force 'EDT/EST' label)
+            to_time = utc_time.astimezone(pytz.timezone('America/Toronto'))
+            deadline_to = to_time.strftime('%b %d, %I:%M %p') + " EDT"
+                    
+            # Format for Hanoi (Force 'ICT' label)
+            vn_time = utc_time.astimezone(pytz.timezone('Asia/Ho_Chi_Minh'))
+            deadline_vn = vn_time.strftime('%b %d, %I:%M %p') + " ICT"
+                    
+        return current_gw['id'], deadline_to, deadline_vn
+
+    def get_live_standings(self):
+        # 1. Fetch current Gameweek dynamically
+        gw_info = self.get_gameweek_info()
+        current_gw = gw_info['id']
+
+        data = get_data(self.api_url)
 
         # Check if 'standings' exists in the response
-        if 'standings' not in data:
-            return pd.DataFrame({"Error": ["Could not find standings. Check if your League ID is a Classic League."]})
-            
-        if not data['standings'].get('results'):
+        if 'standings' not in data or not data['standings'].get('results'):
             return pd.DataFrame({"Error": ["League hasn't started or no results found yet."]})
             
-        # Extract and rename initial columns
-        df = pd.json_normalize(data['standings']['results'])
-        df = df[['player_name', 'entry_name', 'event_total', 'rank', 'total']]
-        df.columns = ['Manager', 'Team Name', 'GW Points', 'Overall Rank', 'Total']
+        standings_results = data['standings']['results']
+        all_manager_data = []
+        
+        # 2. Loop through managers to get Hits and Bench
+        for entry in standings_results:
+            team_id = entry['entry']
             
-        # LOGIC: Sort by GW performance for the Weekly Prizes
+            # Call your cleaned-up history function
+            gw_stats_df = self.calculate_team_gw_point(team_id, current_gw)
+            gw_stats = gw_stats_df.iloc[0]
+            
+            all_manager_data.append({
+                'Manager': entry['player_name'],
+                'Team Name': entry['entry_name'],
+                'GW Points': entry['event_total'],
+                'Hits': int(gw_stats['transfers_cost']),
+                'Bench': int(gw_stats['points_on_bench']),
+                'Overall Rank': entry['rank'],
+                'Total': entry['total']
+            })
+
+        df = pd.DataFrame(all_manager_data)
+
+        # 3. SORTING LOGIC: Still using GW Points and Total for now
         df = df.sort_values(by=['GW Points', 'Total'], ascending=[False, False])
-            
-        # Create the Weekly Rank based on this sort
+        
+        # 4. Create the Weekly Rank and Map Cash
         df['GW Rank'] = range(1, len(df) + 1)
-            
-        # Calculate Cash
         df['GW Cash'] = df['GW Rank'].map(self.weekly_prize_mapping).fillna(0)
-            
-        # Reorder columns as requested
+        
+        # 5. REORDER: Hits and Bench behind GW Cash
         column_order = [
-            'GW Rank', 'Manager', 'Team Name', 
-            'GW Points', 'GW Cash', 'Overall Rank', 'Total'
+            'GW Rank', 'Manager', 'Team Name', 'GW Points', 
+            'GW Cash', 'Hits', 'Bench', 'Overall Rank', 'Total'
         ]
 
         return df[column_order]
 
-    def get_gameweek_info(self):
-        url = "https://fantasy.premierleague.com/api/bootstrap-static/"
-        data = requests.get(url).json()
+    def calculate_team_gw_point(self, team_id, gw):
+        """
+        Fetches detailed GW stats for a specific manager to calculate tie-breakers.
+        """
+        url = f"https://fantasy.premierleague.com/api/entry/{team_id}/history/"
         
-        events = data['events']
-        current_gw = next((e for e in events if e['is_current']), events[0])
-        next_gw = next((e for e in events if e['is_next']), None)
-        
-        deadline_to = "N/A"
-        deadline_vn = "N/A"
-        
-        if next_gw:
-            utc_time = datetime.strptime(next_gw['deadline_time'], '%Y-%m-%dT%H:%M:%SZ')
-            utc_time = pytz.utc.localize(utc_time)
-                
-            # Format for Toronto (Force 'EDT/EST' label)
-            to_time = utc_time.astimezone(pytz.timezone('America/Toronto'))
-            deadline_to = to_time.strftime('%b %d, %I:%M %p') + " EDT"
-                
-            # Format for Hanoi (Force 'ICT' label)
-            vn_time = utc_time.astimezone(pytz.timezone('Asia/Ho_Chi_Minh'))
-            deadline_vn = vn_time.strftime('%b %d, %I:%M %p') + " ICT"
-                
-        return current_gw['id'], deadline_to, deadline_vn
+        try:
+            response = requests.get(url)
+            response.raise_for_status() # Check if the API call actually worked
+            data = response.json()
+
+            # Convert the 'current' season history to a DataFrame
+            history = pd.DataFrame(data['current'])
+            
+            # Filter for the specific GW
+            gw_row = history[history['event'] == gw]
+
+            if gw_row.empty:
+                # Return zeros if the manager didn't play that week
+                return pd.DataFrame([{
+                    'team_id': team_id, 'gw': gw, 'points': 0,
+                    'points_on_bench': 0, 'transfers': 0, 'transfers_cost': 0
+                }])
+
+            gw_data = gw_row.iloc[0]
+
+            # Return the clean stats needed for your tie-breaker logic
+            return pd.DataFrame([{
+                'team_id': team_id,
+                'gw': gw,
+                'points': int(gw_data['points']),
+                'points_on_bench': int(gw_data['points_on_bench']),
+                'transfers': int(gw_data['event_transfers']),
+                'transfers_cost': int(gw_data['event_transfers_cost'])
+            }])
+
+        except Exception as e:
+            # If the API is down or the ID is wrong, return a safe "empty" row
+            return pd.DataFrame([{
+                'team_id': team_id, 'gw': gw, 'points': 0,
+                'points_on_bench': 0, 'transfers': 0, 'transfers_cost': 0
+            }])
 
 # --- STREAMLIT UI ---
 st.set_page_config(page_title="Sailors FPL", page_icon="⚽")
