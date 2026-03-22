@@ -18,8 +18,21 @@ class FPLMoneyLeague:
         
         # Your specific money mapping
         self.weekly_prize_mapping = {
-            1: 45, 2: 35, 3: 25, 4: 20, 5: 15, 6: 10, 7: 0, 
-            8: -5, 9: -10, 10: -10, 11: -15, 12: -20, 13: -25, 14: -30, 15: -35
+            1: 45, 
+            2: 35, 
+            3: 25, 
+            4: 20, 
+            5: 15, 
+            6: 10, 
+            7: 0, 
+            8: -5, 
+            9: -10, 
+            10: -10, 
+            11: -15, 
+            12: -20, 
+            13: -25, 
+            14: -30, 
+            15: -35
         }
 
     def get_gameweek_info(self):
@@ -172,7 +185,6 @@ try:
         
     with col_right:
         st.markdown(f"### Next Deadline (GW {next_gw})")
-        # Flags will look great on the iOS screenshot you just sent!
         st.markdown(f"🇨🇦 **Toronto:** `{deadline_to}`")
         st.markdown(f"🇻🇳 **Hanoi:** `{deadline_vn}`")
     
@@ -211,8 +223,8 @@ if st.button('Fetch Live Standings'):
             # Display the table
             st.dataframe(
                 styled_df, 
-                width='stretch',
-                height='content', 
+                width="stretch",
+                height=(len(df) + 1) * 35 + 3,  #"stretch",
                 hide_index=True
             )
             
