@@ -74,7 +74,7 @@ class FPLMoneyLeague:
         standings_results = data['standings']['results']
         all_manager_data = []
         
-        # 2. Loop through managers to get Hits and Bench
+        # 2. Loop through managers to get data
         for entry in standings_results:
             team_id = entry['entry']
             
@@ -83,6 +83,7 @@ class FPLMoneyLeague:
             gw_stats = gw_stats_df.iloc[0]
             
             all_manager_data.append({
+                'Team ID': team_id,
                 'Manager': entry['player_name'],
                 'Team Name': entry['entry_name'],
                 'GW Points': entry['event_total'],
@@ -93,14 +94,21 @@ class FPLMoneyLeague:
             })
 
         df = pd.DataFrame(all_manager_data)
-
+        
+        # 3. Resolve tiebreakers
         df['GW Net'] = df['GW Points'] + df['Hits']
+        
+        df['is_tied'] = df.duplicated(subset=['GW Points', 'Hits', 'Bench'], keep=False)
 
-        # 3. SORTING LOGIC: Still using GW Points and Total for now
-        df = df.sort_values(
-            by=['GW Points', 'GW Net', 'Bench', 'Total'], 
-            ascending=[False, False, False, False]
-        )
+        def resolve_deadlock(row, current_gw):
+            if row['is_tied']:
+                return self.get_last_two_gw_points(row['Team ID'], current_gw)
+            return 0
+        
+        df['Last 2 GW'] = df.apply(lambda x: resolve_deadlock(x, current_gw), axis=1)
+
+        df = df.sort_values(by=['GW Points', 'Hits', 'Bench', 'Last 2 GW'], 
+                    ascending=[False, True, False, False])
         
         # 4. Create the Weekly Rank and Map Cash
         df['GW Rank'] = range(1, len(df) + 1)
@@ -112,12 +120,15 @@ class FPLMoneyLeague:
             'GW Cash', 'Hits', 'Bench', 'OR', 'Total'
         ]
 
+        # Only add the "Deep History" column if a tie was actually resolved
+        # We check if any value in the column is greater than 0
+        if (df['Last 2 GW'] > 0).any():
+            column_order.append('Last 2 GW')
+
         return df[column_order]
 
     def calculate_team_gw_point(self, team_id, gw):
-        """
-        Fetches detailed GW stats for a specific manager to calculate tie-breakers.
-        """
+        """Fetches detailed GW stats for a specific manager to calculate tie-breakers."""
         url = f"https://fantasy.premierleague.com/api/entry/{team_id}/history/"
         
         try:
@@ -156,6 +167,39 @@ class FPLMoneyLeague:
                 'team_id': team_id, 'gw': gw, 'points': 0,
                 'points_on_bench': 0, 'transfers': 0, 'transfers_cost': 0
             }])
+
+    def get_last_two_gw_points(self, team_id, current_gw):
+        """Fetches points for the previous two gameweeks with error handling."""
+        # 1. Handle the start of the season
+        if current_gw <= 1:
+            return 0
+
+        total_past_points = 0
+        # Look back at the last 2 weeks (or just 1 if we are in GW2)
+        weeks_to_check = [current_gw - 1, current_gw - 2]
+        
+        for gw in weeks_to_check:
+            if gw < 1:
+                continue
+                
+            url = f"https://fantasy.premierleague.com/api/entry/{team_id}/event/{gw}/picks/"
+            
+            try:
+                response = requests.get(url, timeout=5) # 5s timeout so it doesn't hang
+                if response.status_code == 200:
+                    data = response.json()
+                    # Safely navigate the JSON tree
+                    points = data.get('entry_history', {}).get('points', 0)
+                    total_past_points += points
+                else:
+                    # If API fails for one week, we just count it as 0
+                    continue
+            except Exception as e:
+                # Logs the error to your terminal but keeps the app running
+                print(f"Error fetching GW{gw} for {team_id}: {e}")
+                continue
+                
+        return total_past_points
 
 # --- STREAMLIT UI ---
 st.set_page_config(page_title="Sailors FPL", page_icon="⚽")
@@ -224,7 +268,7 @@ if st.button('Fetch Live Standings'):
             st.dataframe(
                 styled_df, 
                 width="stretch",
-                height=(len(df) + 1) * 35 + 3,  #"stretch",
+                height=(len(df) + 1) * 35 + 3, 
                 hide_index=True
             )
             
