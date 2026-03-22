@@ -23,9 +23,9 @@ try:
     next_gw = current_gw + 1
     
     # Using columns for the layout
-    col_left, col_right = st.columns([1, 2])
+    col1, col2, col3 = st.columns([1.5, 1.5, 1.5])
     
-    with col_left:
+    with col1:
         # We use <h3> to match the "Next Deadline" header font family exactly
         st.markdown(
             f"""
@@ -37,29 +37,30 @@ try:
             unsafe_allow_html=True
         )
         
-    with col_right:
-        st.markdown(f"### Next Deadline (GW {next_gw})")
+    with col2:
+        st.markdown(f"### GW {next_gw} Deadline")
         st.markdown(f"🇨🇦 **Toronto:** `{deadline_to}`")
         st.markdown(f"🇻🇳 **Hanoi:** `{deadline_vn}`")
     
     st.divider()
 
 # 4. DATA FETCHING & DISPLAY
-    if st.button('Fetch Live Standings'):
+    if st.button('⚓ Fetch Live Standings'):
         with st.spinner('Calculating profits...'):
             # Use the cached function instead of fpl directly
             df = get_cached_standings(fpl)
             
-            if "Error" in df.columns:
-                st.error(df["Error"].iloc[0])
-            else:
-                # Metric for the weekly winner
+            if not df.empty and "Error" not in df.columns:
                 top_row = df.iloc[0]
-                st.metric(
-                    label="Current GW Leader", 
-                    value=top_row['Manager'], 
-                    delta=f"{top_row['GW Points']} pts"
-                )
+                # 1. POPULATE THE HEADER METRIC (Now inside the button logic)
+                with col3:
+                    st.markdown(f"### Current GW Leader")
+                    st.metric(
+                        label=top_row['Manager'], 
+                        value=f"{top_row['GW Points']} points",
+                        delta=f"GW rank 1",
+                        delta_color="normal"
+                    )
                 
                 st.write("### Gameweek Breakdown")
 
