@@ -223,8 +223,8 @@ if st.button('Fetch Live Standings'):
             # Display the table
             st.dataframe(
                 styled_df, 
-                width='stretch',
-                height='stretch', 
+                width="stretch",
+                height=(len(df) + 1) * 35 + 3,  #"stretch",
                 hide_index=True
             )
             

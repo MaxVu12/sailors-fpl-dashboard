@@ -1,9 +1,18 @@
 # Ignore the virtual environment
 sailors-env/
+sailors/
 
 # Ignore Python cache files
 __pycache__/
 *.py[cod]
+*.pyc
 
 # Ignore environment variables (for later)
 .env
+
+# Mac system files
+.DS_Store
+
+# Streamlit/IDE
+.streamlit/
+.vscode/
