@@ -35,61 +35,127 @@ class FPLMoneyLeague:
             15: -35
         }
 
-    def get_live_standings(self):
-        data = get_data(self.api_url)
-        
-        if 'standings' not in data or not data['standings'].get('results'):
-            return pd.DataFrame({"Error": ["League hasn't started or no results found yet."]})
-        
-        # Extract columns from FPL API
-        df = pd.json_normalize(data['standings']['results'])
-        df = df[['player_name', 'entry_name', 'event_total', 'total']]
-        df.columns = ['Manager', 'Team Name', 'GW Points', 'Total']
-        
-        # 1. SORT: Primary sort for Weekly Prizes
-        df = df.sort_values(by=['GW Points', 'Total'], ascending=[False, False])
-        
-        # 2. RANK: Reset index so it starts at 0, then add 1 to make it a Rank column
-        df = df.reset_index(drop=True)
-        df.index = df.index + 1
-        df.index.name = 'Rank'
-        
-        # 3. CASH: Calculate prizes based on this specific rank
-        # (Using .index allows the mapping to work directly on the row position)
-        df['Weekly Cash'] = df.index.map(self.weekly_prize_mapping).fillna(0)
-        
-        # 4. RESET INDEX AGAIN: To turn 'Rank' from an index into a visible column
-        df = df.reset_index()
-        
-        # Final simplified column order
-        column_order = ['Rank', 'Manager', 'Team Name', 'GW Points', 'Weekly Cash', 'Total']
-
-        return df[column_order]
-
     def get_gameweek_info(self):
         url = "https://fantasy.premierleague.com/api/bootstrap-static/"
         data = requests.get(url).json()
-        
+            
         events = data['events']
         current_gw = next((e for e in events if e['is_current']), events[0])
         next_gw = next((e for e in events if e['is_next']), None)
-        
+            
         deadline_to = "N/A"
         deadline_vn = "N/A"
-        
+            
         if next_gw:
             utc_time = datetime.strptime(next_gw['deadline_time'], '%Y-%m-%dT%H:%M:%SZ')
             utc_time = pytz.utc.localize(utc_time)
-                
+                    
             # Format for Toronto (Force 'EDT/EST' label)
             to_time = utc_time.astimezone(pytz.timezone('America/Toronto'))
             deadline_to = to_time.strftime('%b %d, %I:%M %p') + " EDT"
-                
+                    
             # Format for Hanoi (Force 'ICT' label)
             vn_time = utc_time.astimezone(pytz.timezone('Asia/Ho_Chi_Minh'))
             deadline_vn = vn_time.strftime('%b %d, %I:%M %p') + " ICT"
-                
+                    
         return current_gw['id'], deadline_to, deadline_vn
+
+    def get_live_standings(self):
+        # 1. Fetch current Gameweek dynamically
+        gw_info = self.get_gameweek_info()
+        current_gw = gw_info[0]
+
+        data = get_data(self.api_url)
+
+        # Check if 'standings' exists in the response
+        if 'standings' not in data or not data['standings'].get('results'):
+            return pd.DataFrame({"Error": ["League hasn't started or no results found yet."]})
+            
+        standings_results = data['standings']['results']
+        all_manager_data = []
+        
+        # 2. Loop through managers to get Hits and Bench
+        for entry in standings_results:
+            team_id = entry['entry']
+            
+            # Call your cleaned-up history function
+            gw_stats_df = self.calculate_team_gw_point(team_id, current_gw)
+            gw_stats = gw_stats_df.iloc[0]
+            
+            all_manager_data.append({
+                'Manager': entry['player_name'],
+                'Team Name': entry['entry_name'],
+                'GW Points': entry['event_total'],
+                'Hits': int(gw_stats['transfers_cost']) * -1,
+                'Bench': int(gw_stats['points_on_bench']),
+                'OR': entry['rank'],
+                'Total': entry['total']
+            })
+
+        df = pd.DataFrame(all_manager_data)
+
+        df['GW Net'] = df['GW Points'] + df['Hits']
+
+        # 3. SORTING LOGIC: Still using GW Points and Total for now
+        df = df.sort_values(
+            by=['GW Points', 'GW Net', 'Bench', 'Total'], 
+            ascending=[False, False, False, False]
+        )
+        
+        # 4. Create the Weekly Rank and Map Cash
+        df['GW Rank'] = range(1, len(df) + 1)
+        df['GW Cash'] = df['GW Rank'].map(self.weekly_prize_mapping).fillna(0)
+        
+        # 5. REORDER: Hits and Bench behind GW Cash
+        column_order = [
+            'GW Rank', 'Manager', 'Team Name', 'GW Points', 
+            'GW Cash', 'Hits', 'Bench', 'OR', 'Total'
+        ]
+
+        return df[column_order]
+
+    def calculate_team_gw_point(self, team_id, gw):
+        """
+        Fetches detailed GW stats for a specific manager to calculate tie-breakers.
+        """
+        url = f"https://fantasy.premierleague.com/api/entry/{team_id}/history/"
+        
+        try:
+            response = requests.get(url)
+            response.raise_for_status() # Check if the API call actually worked
+            data = response.json()
+
+            # Convert the 'current' season history to a DataFrame
+            history = pd.DataFrame(data['current'])
+            
+            # Filter for the specific GW
+            gw_row = history[history['event'] == gw]
+
+            if gw_row.empty:
+                # Return zeros if the manager didn't play that week
+                return pd.DataFrame([{
+                    'team_id': team_id, 'gw': gw, 'points': 0,
+                    'points_on_bench': 0, 'transfers': 0, 'transfers_cost': 0
+                }])
+
+            gw_data = gw_row.iloc[0]
+
+            # Return the clean stats needed for your tie-breaker logic
+            return pd.DataFrame([{
+                'team_id': team_id,
+                'gw': gw,
+                'points': int(gw_data['points']),
+                'points_on_bench': int(gw_data['points_on_bench']),
+                'transfers': int(gw_data['event_transfers']),
+                'transfers_cost': int(gw_data['event_transfers_cost'])
+            }])
+
+        except Exception as e:
+            # If the API is down or the ID is wrong, return a safe "empty" row
+            return pd.DataFrame([{
+                'team_id': team_id, 'gw': gw, 'points': 0,
+                'points_on_bench': 0, 'transfers': 0, 'transfers_cost': 0
+            }])
 
 # --- STREAMLIT UI ---
 st.set_page_config(page_title="Sailors FPL", page_icon="⚽")
@@ -142,7 +208,7 @@ if st.button('Fetch Live Standings'):
                 delta=f"{top_row['GW Points']} pts"
             )
             
-            st.write("### Weekly Breakdown")
+            st.write("### Gameweek Breakdown")
 
             # Custom function to fix the -$10 formatting
             def format_currency(val):
@@ -151,8 +217,8 @@ if st.button('Fetch Live Standings'):
                 return f"${val:.0f}"
 
             # Apply Styling
-            styled_df = df.style.format({'Weekly Cash': format_currency}) \
-                .background_gradient(subset=['Weekly Cash'], cmap='RdYlGn')
+            styled_df = df.style.format({'GW Cash': format_currency}) \
+                .background_gradient(subset=['GW Cash'], cmap='RdYlGn')
 
             # Display the table
             st.dataframe(
