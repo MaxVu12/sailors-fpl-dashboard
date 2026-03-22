@@ -224,7 +224,7 @@ if st.button('Fetch Live Standings'):
             st.dataframe(
                 styled_df, 
                 width='stretch',
-                height='content', 
+                height='stretch', 
                 hide_index=True
             )
             
