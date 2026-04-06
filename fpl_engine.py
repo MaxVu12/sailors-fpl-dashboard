@@ -36,6 +36,24 @@ class FPLMoneyLeague:
         except Exception as e:
             print(f"API Error: {e}")
             return {}
+
+    def get_league_managers(self):
+        """Fetches and sorts managers by Entry ID (Lowest first)."""
+        data = self._get_data(self.api_url)
+        if not data or 'standings' not in data:
+            return {}
+        
+        # 1. Get the raw list
+        raw_results = data['standings']['results']
+        
+        # 2. Sort the list by 'entry' ID ascending
+        sorted_results = sorted(raw_results, key=lambda x: x['entry'])
+        
+        # 3. Create the dict (Python 3.7+ preserves insertion order)
+        return {
+            f"{r['player_name']} ({r['entry_name']})": r['entry'] 
+            for r in sorted_results
+        }
     
     def get_gameweek_info(self):
         data = requests.get(self.bootstrap_url).json()
@@ -223,3 +241,87 @@ class FPLMoneyLeague:
                 continue
                 
         return total_past_points
+
+    def get_gw_live_data(self, gw):
+        """
+        Fetches live points and merges them with player positions 
+        to prevent KeyErrors during simulation.
+        """
+        # 1. Get the "Who is what position" map (Bootstrap Static)
+        static_url = "https://fantasy.premierleague.com/api/bootstrap-static/"
+        static_data = self._get_data(static_url)
+        pos_map = {el['id']: el['element_type'] for el in static_data['elements']}
+        
+        # 2. Get the "How did they do this week" stats (Live)
+        live_url = f"https://fantasy.premierleague.com/api/event/{gw}/live/"
+        live_data = self._get_data(live_url)
+        
+        # 3. Merge them into one clean dictionary
+        return {
+            el['id']: {
+                'points': el['stats']['total_points'],
+                'minutes': el['stats']['minutes'],
+                'position': pos_map.get(el['id']) # This fixes the KeyError!
+            } for el in live_data['elements']
+        }
+    
+    def simulate_score(self, picks, live_data):
+        """Calculates score with Captaincy and 3-Def-Min Autosub rules."""
+        starters = [p for p in picks if p['position'] <= 11]
+        bench = sorted([p for p in picks if p['position'] > 11], key=lambda x: x['position'])
+        
+        # 1. Captaincy & Vice-Captaincy
+        cap = next(p for p in picks if p['is_captain'])
+        vc = next(p for p in picks if p['is_vice_captain'])
+        
+        # Check if original captain played any minutes
+        active_id = cap['element'] if live_data[cap['element']]['minutes'] > 0 else vc['element']
+        
+        # 2. Base Points for Starters who actually played
+        playing_starters = [p for p in starters if live_data[p['element']]['minutes'] > 0]
+        points = sum(live_data[p['element']]['points'] for p in playing_starters)
+        
+        # Add the double points for whoever ended up with the armband
+        points += live_data[active_id]['points'] 
+
+        # 3. Autosub Logic
+        missing = [p for p in starters if live_data[p['element']]['minutes'] == 0]
+        available_bench = [p for p in bench if live_data[p['element']]['minutes'] > 0]
+        
+        # Count how many defenders are currently in the playing XI
+        def_count = sum(1 for p in playing_starters if live_data[p['element']]['position'] == 2)
+
+        for m in missing:
+            m_pos = live_data[m['element']]['position']
+            
+            for b in available_bench:
+                b_id = b['element']
+                b_pos = live_data[b_id]['position']
+                
+                can_sub = False
+                
+                # RULE: Keeper for Keeper
+                if m_pos == 1:
+                    if b_pos == 1: 
+                        can_sub = True
+                
+                # RULE: Outfield for Outfield
+                else:
+                    if b_pos != 1:
+                        # If we are losing a defender and already at the 3-DEF minimum, 
+                        # we MUST sub in another defender.
+                        if m_pos == 2 and def_count < 3:
+                            if b_pos == 2: 
+                                can_sub = True
+                        else:
+                            # Otherwise, any outfield player can come on
+                            can_sub = True
+                
+                if can_sub:
+                    points += live_data[b_id]['points']
+                    if b_pos == 2: 
+                        def_count += 1
+                    available_bench.remove(b) # This player is now used
+                    break # Move to the next missing starter
+                    
+        return points
