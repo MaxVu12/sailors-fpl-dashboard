@@ -93,9 +93,18 @@ if st.button("🚀 Run Analysis"):
             
             # Area Chart
             fig = px.area(df, x="GW", y=["Set & Forget", "Actual Performance"],
-                          title="Manager vs. Machine: Cumulative Score",
+                          title="Management Alpha: Set & Forget vs. Actual Performance",
                           color_discrete_map={"Set & Forget": "#ef5350", "Actual Performance": "#66bb6a"},
                           template="plotly_white")
+            
+            fig.update_layout(
+                title={
+                    'text': "Management Alpha: Original vs. Actual",
+                    'subtitle': {'text': "❗Actual performance doesn't include additional points from chips like 3️⃣Triple Captain and 🪑Bench Boost"}
+                },
+                hovermode="x unified"
+            )
+            fig.update_traces(stackgroup=None)
             st.plotly_chart(fig, use_container_width=True)
             
             # Metrics
