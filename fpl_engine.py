@@ -140,7 +140,7 @@ class FPLMoneyLeague:
         # 3. Sort by League Rules
         df = df.sort_values(
             by=['GW Points', 'Hits', 'Bench', 'Last 2 GW'], 
-            ascending=[False, True, False, False]
+            ascending=[False, False, False, False]
         )
         
         # 4. Rank and Cash
