@@ -5,7 +5,7 @@ from fpl_engine import FPLMoneyLeague
 from datetime import datetime
 
 # Initialize
-fpl = FPLMoneyLeague("126694")
+fpl = FPLMoneyLeague("7492")
 
 st.set_page_config(page_title="What-If Machine", page_icon="🔮")
 st.title("🔮 The What-If Machine")
@@ -32,7 +32,7 @@ with st.sidebar:
         team_id = managers_dict[selected_name]
     else:
         # Fallback if the API fails or league is empty
-        team_id = st.text_input("Enter Team ID manually", value="29690")
+        team_id = st.text_input("Enter Team ID manually", value="35041")
 
     st.divider()
     start_gw = st.number_input("Start Week", 1, 38, 1)

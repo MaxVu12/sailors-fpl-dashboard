@@ -7,7 +7,7 @@ from fpl_engine import FPLMoneyLeague
 st.set_page_config(page_title="Sailors History", page_icon="📜", layout="wide")
 
 # 2. INITIALIZE ENGINE
-fpl = FPLMoneyLeague("126694")
+fpl = FPLMoneyLeague("7492")
 
 # 3. CACHING FOR HISTORY
 # We cache history for longer (e.g., 24 hours) since past data doesn't change
