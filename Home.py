@@ -7,7 +7,7 @@ from fpl_engine import FPLMoneyLeague
 st.set_page_config(page_title="Sailors FPL", page_icon="⚽", layout="wide")
 
 # 1. Initialize class and fetch GW info immediately
-fpl = FPLMoneyLeague("126694")
+fpl = FPLMoneyLeague("7492")
 
 # 2. CACHING LOGIC
 # We wrap the engine call in a function so Streamlit can "save" the result
