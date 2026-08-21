@@ -89,5 +89,10 @@ try:
                 # Timestamp
                 st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %I:%M %p')} UTC")
 
+            else:
+            # 💡 THIS WILL NOW SHOW INSTEAD OF A BLANK SCREEN
+                error_msg = df["Error"].iloc[0] if "Error" in df.columns else "No data returned."
+                st.info(f"ℹ️ {error_msg}")
+
 except Exception as e:
     st.warning(f"Could not fetch status: {e}")
